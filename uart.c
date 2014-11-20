@@ -20,14 +20,29 @@ void init_UART(){
 void send_uart(char *data)
 {
 	unsigned int i;
-	unsigned int size = strlen(data);      //get length of data to be sent
+	unsigned int size = strlen(data);
 	for (i = 0; i < size; i++) {
-		while (!(IFG2 & UCA0TXIFG));      //Wait UART to finish before next send
+		while (!(IFG2 & UCA0TXIFG));
 		UCA0TXBUF = data[i];
 	}
 }
 
 void send_dato(char data){
-    while (!(IFG2 & UCA0TXIFG)); //Wait UART to finish before next send
+    while (!(IFG2 & UCA0TXIFG)); //Esperar que se transmita para mandar el caracter
     UCA0TXBUF = data;
+}
+
+unsigned char recibir_dato(){
+	__bis_SR_register(LPM3_bits | GIE); //Espero la interrupcion
+	 IE2 &= ~UCA0RXIE;
+	unsigned char dummy;
+	dummy = UCA0RXBUF;
+
+	if (dummy == 0x13){
+		 IE2 |= UCA0RXIE;
+		return dummy; //Enter termina el stream
+	}else{
+		 IE2 |= UCA0RXIE;
+		return dummy;
+	}
 }

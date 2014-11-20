@@ -98,7 +98,7 @@ static void flush_rx(){
     deshabilitar_nrf();
 }
 
-void leer_rx_payload(uint8_t * buff){
+void nrf_leer_rx_payload(uint8_t * buff){
 	habilitar_nrf();
 	spi_transferir(0x61);
 	uint8_t i;
@@ -179,6 +179,16 @@ void nrf_cargar_y_transmitir(uint8_t * data32bytes){
 	desactivar_nrf();
 }
 
+void nrf_limpiar_y_retransmitir(void){
+    desactivar_nrf();
+    nrf_limpiar_flags();
+    activar_nrf();
+    __delay_cycles(2000);
+    desactivar_nrf();
+}
+
+
+
 void nrf_limpiar_flags(){
 	desactivar_nrf();
 	habilitar_nrf();
@@ -227,7 +237,7 @@ void nrf_ver_registros(void){
 	xprintf("FEATURE:\t0x%02x\n\r",leer_reg_8bits(0x1D));
 	int8_t i;
 	uint8_t rbuff[32];
-	leer_rx_payload(rbuff);
+    nrf_leer_rx_payload(rbuff);
 	xputs("RX_PAYLOAD: \t");
 	for(i=31;i>=0;i--){
 		xprintf("%02x",rbuff[i]);
@@ -262,7 +272,7 @@ inline uint8_t nrf_esperar(){
 /* nrf_RX_pendientes() devuelve 0 si la RX FIFO esta vacia
  * y 1 si existe algun paquete */
 inline int8_t nrf_RX_pendientes(void){
-    // Leer FIFO_STATUS, si RX_EMPTY esta seteado RX FIFO esta vacia
+    // Leer FIFO_STATUS, si RX_EMPTY esta seteado, RX FIFO esta vacia
     // y no hay pendientes.
     return (leer_reg_8bits(0x17) & 0x01) ? 0 : 1;
 }

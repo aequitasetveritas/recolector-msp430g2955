@@ -851,13 +851,13 @@ DWORD clust2sect (	/* !=0: Sector number, 0: Failed - invalid cluster# */
 {
 	clst -= 2;
 	if (clst >= (fs->n_fatent - 2)) return 0;		/* Invalid cluster# */
-        xprintf("\n\rfs->database: %04x",(fs->database)>>16);
-        xprintf("%04x\n\r",fs->database);
-	xprintf("\n\rclst: %04x",clst>>16);
-        xprintf("%04x\n\r",clst);
-        xprintf("\n\rfs->csize: %02x",fs->csize);
-        xprintf("\n\rfs->csize * clst: %04x",(fs->csize * clst)>>16);
-        xprintf("%04x\n\r",fs->csize * clst);
+//        xprintf("\n\rfs->database: %04x",(fs->database)>>16);
+//        xprintf("%04x\n\r",fs->database);
+//	xprintf("\n\rclst: %04x",clst>>16);
+//        xprintf("%04x\n\r",clst);
+//        xprintf("\n\rfs->csize: %02x",fs->csize);
+//        xprintf("\n\rfs->csize * clst: %04x",(fs->csize * clst)>>16);
+//        xprintf("%04x\n\r",fs->csize * clst);
 	
         return (fs->csize * clst + fs->database);
 }
@@ -1504,12 +1504,12 @@ FRESULT dir_find (
 #if _USE_LFN
 	BYTE a, ord, sum;
 #endif
-        xputs("\n\rdir_find;1499\n\r");
+//        xputs("\n\rdir_find;1499\n\r");
 	res = dir_sdi(dp, 0);			/* Rewind directory object */
 	if (res != FR_OK) return res;
-        xputs("\n\r ----Info Dir------\n\r");
-        xprintf("\n\r sector %04x",(WORD)((dp->sect)>>16));
-        xprintf("%04x\n\r",(WORD)(dp->sect));
+//        xputs("\n\r ----Info Dir------\n\r");
+//        xprintf("\n\r sector %04x",(WORD)((dp->sect)>>16));
+//        xprintf("%04x\n\r",(WORD)(dp->sect));
         
 #if _USE_LFN
 	ord = sum = 0xFF; dp->lfn_idx = 0xFFFF;	/* Reset LFN sequence */
@@ -1519,7 +1519,8 @@ FRESULT dir_find (
 		if (res != FR_OK) break;
 		dir = dp->dir;					/* Ptr to the directory entry of current index */
 		c = dir[DIR_Name];
-		if (c == 0) { xputs("aca");res = FR_NO_FILE; break; }	/* Reached to end of table */
+        if (c == 0) { //xputs("aca");
+            res = FR_NO_FILE; break; }	/* Reached to end of table */
 #if _USE_LFN	/* LFN configuration */
 		a = dir[DIR_Attr] & AM_MASK;
 		if (c == DDE || ((a & AM_VOL) && a != AM_LFN)) {	/* An entry without valid data */
@@ -2031,7 +2032,7 @@ FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 	FRESULT res;
 	BYTE *dir, ns;
 
-        xputs("\n\rfollow_path;2023\n\r");
+        //xputs("\n\rfollow_path;2023\n\r");
 #if _FS_RPATH
 	if (*path == '/' || *path == '\\') {	/* There is a heading separator */
 		path++;	dp->sclust = 0;				/* Strip it and start from the root directory */
@@ -2051,8 +2052,8 @@ FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 		for (;;) {
 			res = create_name(dp, &path);	/* Get a segment name of the path */
 			if (res != FR_OK) break;
-			xprintf("\n\rdp->sec %04x",(dp->sect)>>16);
-                        xprintf("%04x \n\r",(dp->sect));
+//			xprintf("\n\rdp->sec %04x",(dp->sect)>>16);
+//                        xprintf("%04x \n\r",(dp->sect));
                         res = dir_find(dp);				/* Find an object with the sagment name */
 			ns = dp->fn[NS];
 			if (res != FR_OK) {				/* Failed to find the object */
@@ -2073,8 +2074,8 @@ FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
 				res = FR_NO_PATH; break;
 			}
 			dp->sclust = ld_clust(dp->fs, dir);
-                        xprintf("\n\rdp->sclust %04x",(dp->sclust)>>16);
-                        xprintf("%04x \n\r",(dp->sclust));
+//                        xprintf("\n\rdp->sclust %04x",(dp->sclust)>>16);
+//                        xprintf("%04x \n\r",(dp->sclust));
 		}
 	}
 
@@ -2153,7 +2154,7 @@ BYTE check_fs (	/* 0:FAT boor sector, 1:Valid boor sector but not FAT, 2:Not a b
 	DWORD sect	/* Sector# (lba) to check if it is an FAT boot record or not */
 )
 {       
-        xprintf("\n\r check_fs;2141: sect %08x \n\r",sect);
+//        xprintf("\n\r check_fs;2141: sect %08x \n\r",sect);
 	fs->wflag = 0; fs->winsect = 0xFFFFFFFF;	/* Invaidate window */
 	if (move_window(fs, sect) != FR_OK)			/* Load boot record */
 		return 3;
@@ -2195,7 +2196,7 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 	*rfs = 0;
 	vol = get_ldnumber(path);
 	if (vol < 0) return FR_INVALID_DRIVE;
-        xprintf("\n\rString %s\n\r",*path);
+//        xprintf("\n\rString %s\n\r",*path);
 	/* Check if the file system object is valid or not */
 	
         fs = FatFs[vol];					/* Get pointer to the file system object */
@@ -2229,7 +2230,7 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 #endif
 	/* Find an FAT partition on the drive. Supports only generic partitioning, FDISK and SFD. */
 	bsect = 0;
-        xputs("\n\rCheck Partition 2215:\n\r");
+        //xputs("\n\rCheck Partition 2215:\n\r");
 	fmt = check_fs(fs, bsect);					/* Load sector 0 and check if it is an FAT boot sector as SFD */
 	if (fmt == 1 || (!fmt && (LD2PT(vol)))) {	/* Not an FAT boot sector or forced partition number */
                 UINT i;
@@ -2259,8 +2260,8 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
         DWORD volido;
         volido = LD_DWORD(fs->win+BS_VolID);
         
-        xprintf("\n\r VOLID %04x",(volido>>16));
-        xprintf("%04x\n\r",(WORD)volido);
+//        xprintf("\n\r VOLID %04x",(volido>>16));
+//        xprintf("%04x\n\r",(WORD)volido);
                             
         if (LD_WORD(fs->win+BPB_BytsPerSec) != SS(fs))		/* (BPB_BytsPerSec must be equal to the physical sector size) */
 		return FR_NO_FILESYSTEM;
@@ -2274,14 +2275,14 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 	if (fs->n_fats != 1 && fs->n_fats != 2)				/* (Must be 1 or 2) */
 		return FR_NO_FILESYSTEM;
 	fasize *= fs->n_fats;/* Number of sectors for FAT area */
-        xprintf("\n\r n_fats:%02x\n\r",fs->n_fats);
+//        xprintf("\n\r n_fats:%02x\n\r",fs->n_fats);
         
-        xprintf("\n\r fasize (MULTI):%04x",fasize>>16);
-        xprintf("%04x \n\r",fasize);
+//        xprintf("\n\r fasize (MULTI):%04x",fasize>>16);
+//        xprintf("%04x \n\r",fasize);
         
      //   fasize = 2 * 0x100;
-        xprintf("\n\r fasize:%04x",fasize>>16);
-        xprintf("%04x \n\r",fasize);
+//        xprintf("\n\r fasize:%04x",fasize>>16);
+//        xprintf("%04x \n\r",fasize);
         
         //send_uart("3");
 	fs->csize = fs->win[BPB_SecPerClus];				/* Number of sectors per cluster */
@@ -2289,7 +2290,7 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 		return FR_NO_FILESYSTEM;
         //send_uart("4");
 	fs->n_rootdir = LD_WORD(fs->win+BPB_RootEntCnt);	/* Number of root directory entries */
-	xprintf("\n\r rootdir:%04x \n\r",fs->n_rootdir);
+//	xprintf("\n\r rootdir:%04x \n\r",fs->n_rootdir);
   
         if (fs->n_rootdir % (SS(fs) / SZ_DIR))				/* (Must be sector aligned) */
 		return FR_NO_FILESYSTEM;
@@ -2298,17 +2299,17 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
 	if (!tsect) tsect = LD_DWORD(fs->win+BPB_TotSec32);
 	        
         nrsv = LD_WORD(fs->win+BPB_RsvdSecCnt);				/* Number of reserved sectors */
-        xprintf("\n\r nsvr:%04x \n\r",nrsv);
+//        xprintf("\n\r nsvr:%04x \n\r",nrsv);
         if (!nrsv) return FR_NO_FILESYSTEM;					/* (Must not be 0) */
         //send_uart("6");
 	/* Determine the FAT sub type */
         sysect = 0;
 	sysect = nrsv + fasize + fs->n_rootdir / (SS(fs) / SZ_DIR);	/* RSV+FAT+DIR */
 	//send_uart("7");
-        xprintf("\n\r TSECT:%04x",tsect>>16);
-        xprintf("%04x",tsect);
-        xprintf(" SYSECT: %04x",sysect>>16);
-        xprintf("%04x \n\r",sysect);
+//        xprintf("\n\r TSECT:%04x",tsect>>16);
+//        xprintf("%04x",tsect);
+//        xprintf(" SYSECT: %04x",sysect>>16);
+//        xprintf("%04x \n\r",sysect);
         if (tsect < sysect) return FR_NO_FILESYSTEM;		/* (Invalid volume size) */
 	//send_uart("8");
         nclst = (tsect - sysect) / fs->csize;				/* Number of clusters */
@@ -2334,8 +2335,8 @@ FRESULT find_volume (	/* FR_OK(0): successful, !=0: any error occurred */
                 fs->dirbase = fs->fatbase + fasize;				/* Root directory start sector */
 		szbfat = (fmt == FS_FAT16) ?					/* (Needed FAT size) */
 			fs->n_fatent * 2 : fs->n_fatent * 3 / 2 + (fs->n_fatent & 1);
-                xprintf("\n\r szbfat:%04x",szbfat>>16);
-                xprintf("%04x \n\r",szbfat);
+//                xprintf("\n\r szbfat:%04x",szbfat>>16);
+//                xprintf("%04x \n\r",szbfat);
         }
         //send_uart("11");
 	if (fs->fsize < (szbfat + (SS(fs) - 1)) / SS(fs))	/* (BPB_FATSz must not be less than needed) */
@@ -2478,7 +2479,7 @@ FRESULT f_open (
 	BYTE *dir;
 	DEF_NAMEBUF;
         
-        xprintf("\n\rpath %s", path);
+//        xprintf("\n\rpath %s", path);
 
 	if (!fp) return FR_INVALID_OBJECT;
 	fp->fs = 0;			/* Clear file object */
@@ -2487,21 +2488,21 @@ FRESULT f_open (
 #if !_FS_READONLY
 	mode &= FA_READ | FA_WRITE | FA_CREATE_ALWAYS | FA_OPEN_ALWAYS | FA_CREATE_NEW;
 	res = find_volume(&dj.fs, &path, (BYTE)(mode & ~FA_READ));
-        xputs("2465 ok\n\r");
+        //xputs("2465 ok\n\r");
 #else
 	mode &= FA_READ;
 	res = find_volume(&dj.fs, &path, 0);
 #endif
 	if (res == FR_OK) {
-            xputs("2471 ok\n\r");
+            //xputs("2471 ok\n\r");
             INIT_BUF(dj);
 		res = follow_path(&dj, path);	/* Follow the file path */
-                xprintf("2474 despues res: %02x\n\r",(int)res);
+//                xprintf("2474 despues res: %02x\n\r",(int)res);
                 
 		dir = dj.dir;
 #if !_FS_READONLY	/* R/W configuration */
 		if (res == FR_OK) {
-                        xputs("2477 ok\n\r");
+                        //xputs("2477 ok\n\r");
 			if (!dir)	/* Default directory itself */
 				res = FR_INVALID_NAME;
 #if _FS_LOCK
@@ -2550,14 +2551,14 @@ FRESULT f_open (
 			}
 		}
 		else {	/* Open an existing file */
-                                            xputs("2526 ok\n\r");
+                                            //xputs("2526 ok\n\r");
 
                     if (res == FR_OK) {					/* Follow succeeded */
-                                                    xputs("2529 ok\n\r");
+                                                    //xputs("2529 ok\n\r");
 
                         if (dir[DIR_Attr] & AM_DIR) {	/* It is a directory */
 					res = FR_NO_FILE;
-                                        xputs("\n\rFR_NOFILE 2526n\n\r");
+                                        //xputs("\n\rFR_NOFILE 2526n\n\r");
 				} else {
 					if ((mode & FA_WRITE) && (dir[DIR_Attr] & AM_RDO)) /* R/O violation */
 						res = FR_DENIED;
@@ -2592,8 +2593,8 @@ FRESULT f_open (
 			fp->flag = mode;					/* File access mode */
 			fp->err = 0;						/* Clear error flag */
 			fp->sclust = ld_clust(dj.fs, dir);	/* File start cluster */
-                        xprintf("\n\rOPEN :fp->sclust %04x",(fp->sclust)>>16);
-                        xprintf("%04x \n\r",(fp->sclust));
+//                        xprintf("\n\rOPEN :fp->sclust %04x",(fp->sclust)>>16);
+//                        xprintf("%04x \n\r",(fp->sclust));
 			fp->fsize = LD_DWORD(dir+DIR_FileSize);	/* File size */
 			fp->fptr = 0;						/* File pointer */
 			fp->dsect = 0;
@@ -2604,7 +2605,7 @@ FRESULT f_open (
 			fp->id = fp->fs->id;
 		}
 	}
-                                xputs("2578 ok\n\r");
+                                //xputs("2578 ok\n\r");
 
 	LEAVE_FF(dj.fs, res);
 }
@@ -2659,15 +2660,15 @@ FRESULT f_read (
 				if (clst == 0xFFFFFFFF) ABORT(fp->fs, FR_DISK_ERR);
 				fp->clust = clst;				/* Update current cluster */
 			}
-                        xprintf("\n\read fp_clust: %04x",(fp->clust)>>16);
-                        xprintf("%04x",(fp->clust));
+//                        xprintf("\n\read fp_clust: %04x",(fp->clust)>>16);
+//                        xprintf("%04x",(fp->clust));
 			sect = clust2sect(fp->fs, fp->clust);	/* Get current sector */
-			xprintf("\n\read sector: %04x",sect>>16);
-                        xprintf("%04x",sect);
+//			xprintf("\n\read sector: %04x",sect>>16);
+//                        xprintf("%04x",sect);
                         if (!sect) ABORT(fp->fs, FR_INT_ERR);
 			sect += csect;
-                        xprintf("\n\read sector + csect: %04x",sect>>16);
-                        xprintf("%04x",sect);
+//                        xprintf("\n\read sector + csect: %04x",sect>>16);
+//                        xprintf("%04x",sect);
 			cc = btr / SS(fp->fs);				/* When remaining bytes >= sector size, */
 			if (cc) {							/* Read maximum contiguous sectors directly */
 				if (csect + cc > fp->fs->csize)	/* Clip at cluster boundary */
@@ -2749,7 +2750,7 @@ FRESULT f_write (
 
 	for ( ;  btw;							/* Repeat until all data written */
 		wbuff += wcnt, fp->fptr += wcnt, *bw += wcnt, btw -= wcnt) {
-		xputs("Escribiendo\n\r");
+        //xputs("Escribiendo\n\r");
 		if ((fp->fptr % SS(fp->fs)) == 0) {	/* On the sector boundary? */
 			csect = (BYTE)(fp->fptr / SS(fp->fs) & (fp->fs->csize - 1));	/* Sector offset in the cluster */
 			if (!csect) {					/* On the cluster boundary? */
@@ -2862,7 +2863,7 @@ FRESULT f_sync (
 #if !_FS_TINY
 			if (fp->flag & FA__DIRTY) {
 				if (disk_write(fp->fs->drv, fp->buf, fp->dsect, 1)){
-					xputs("\n\rsync FA_DIRTY\n\r");
+                    //xputs("\n\rsync FA_DIRTY\n\r");
 					LEAVE_FF(fp->fs, FR_DISK_ERR);}
 				fp->flag &= ~FA__DIRTY;
 			}
@@ -2883,7 +2884,7 @@ FRESULT f_sync (
 			}
 		}
 	}
-	xprintf("\n\rsync res:%02x",(int)res);
+//	xprintf("\n\rsync res:%02x",(int)res);
 	LEAVE_FF(fp->fs, res);
 }
 

@@ -282,12 +282,14 @@ int xgets (		/* 0:End of stream, 1:A line arrived */
 {
 	int c, i;
 
-
+	//xputs("ACS");
 	if (!xfunc_in) return 0;		/* No input function specified */
-
+	//xputs("BCS");
 	i = 0;
 	for (;;) {
+		//xputs("CALling");
 		c = xfunc_in();				/* Get a char from the incoming stream */
+		//xputs("return");
 		if (!c) return 0;			/* End of stream? */
 		if (c == '\r') break;		/* End of line? */
 		if (c == '\b' && i) {		/* Back space? */
