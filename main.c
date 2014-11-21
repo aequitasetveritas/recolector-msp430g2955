@@ -25,8 +25,9 @@
 inline void crono_on();
 inline uint32_t crono_off();
 void recibir_datos(void);
-void limpiar_evento(uint8_t * evento, uint8_t * linea);
+uint8_t limpiar_evento(uint8_t * evento, uint8_t * linea);
 void init_SD(void);
+void tirar_al_archivo(void);
 
 typedef unsigned char bool_t;
 FATFS fatfs;
@@ -125,6 +126,7 @@ int main(void) {
     xputs("4 - nrf24l01+ enviar y recibir\n\r");
     xputs("5 - Test SD\n\r");
     xputs("6 - Recibir Datos y grabar en la SD\n\r");
+    xputs("7 - Tirar datos en la SD\n\r");
     xputs("\n\rIngrese num de comando y presione [ENTER]: ");
     
 
@@ -143,6 +145,10 @@ int main(void) {
     if(!(strcmp(buff,"6")))
     {
         recibir_datos();
+    }
+    if(!(strcmp(buff,"7")))
+    {
+        tirar_al_archivo();
     }
     if(!(strcmp(buff,"1"))){
 	    msprf24_init();
@@ -484,9 +490,7 @@ void menu_sd(void){
 }
 
 enum estado { descarga, continuar, esperar, fin};
-
-void recibir_datos(void){
-
+void tirar_al_archivo(void){
     enum estado est = descarga;
     enum estado prev_est = descarga;
 
@@ -525,9 +529,11 @@ void recibir_datos(void){
     __delay_cycles(10000); // Delay para que todo se estabilice
     nrf_como_PTX(txdir);
 
-    fr = f_open(&fdst, "0:data123.txt", FA_WRITE | FA_OPEN_ALWAYS);
-    if (fr) {xprintf("FA_OPEN_ALWAYS f_open %02x",(int)fr); return (int)fr;}
-
+    fr = f_open(&fdst, "0:datos.txt", FA_WRITE | FA_CREATE_ALWAYS);
+    if (fr) {xprintf("FA_CREATE_ALWAYS f_open %02x",(int)fr); return (int)fr;}
+    fr = f_puts("================================================================================\n\r",&fdst); //80 + 2
+    fr = f_puts("==============================================================================================\n\r",&fdst); //96
+    fr = f_puts("================================================================================\n\r",&fdst); //80 + 2
 
     while(1){
         switch(est){
@@ -574,6 +580,149 @@ void recibir_datos(void){
                 nrf_limpiar_flags();
                 if (!strcmp(buff_trx,"FIN")){
                     // FIN de la transmision
+
+                    xputs("\n\rFIN\n\r");
+                    fr = f_lseek(&fdst, f_size(&fdst));
+                    xputs("l_seek\n\r");
+                    fr = f_write(&fdst, buff_trx,32, &wc);
+                    fr=f_close(&fdst);
+                    xprintf("\n\rCerrado result: %02x",(int)fr);
+                    xputs("\n\r-----------------------------------------\n\r");
+                    f_mount(NULL, "0:", 0);
+                    // Cerrar el archivo;
+                     est = fin;
+                }else{
+                    fr = f_lseek(&fdst, f_size(&fdst));
+                    fr = f_write(&fdst, buff_trx,32, &wc);
+                    est = continuar;
+                }
+            }else{
+                // No se recibio nada en x milisegundos
+                est = descarga;
+            }
+
+            prev_est = esperar;
+            break;
+        case fin:
+            break;
+        }
+    }
+
+}
+
+void recibir_datos(void){
+
+    enum estado est = descarga;
+    enum estado prev_est = descarga;
+
+    uint8_t buff_trx[32];
+    uint8_t buff_evento[192];
+    uint8_t buff_linea[96];
+    uint8_t pbl = 0;
+    uint8_t pbe = 0; // Puntero de buffer_evento
+    uint8_t buff_archivo[1024];
+    uint16_t pba = 0; // Puntero de buffer_archivo
+
+    uint8_t x;
+    uint16_t y; // Contadores
+    // Configuración inicial como PTX.
+
+    uint64_t txdir = 0x65646f4e31;
+    uint64_t rxdir = 0x65646f4e32;
+
+    // SPI a 400kHz
+    init_SD();
+
+    FRESULT fr;
+    FIL fdst;      /* File objects */
+    UINT wc=0;
+
+    if((fr=f_mount(&fatfs, "0:", 1)) != FR_OK){
+        xputs("Hubo un error al montar la tarjeta\n\r");
+        return 1;
+    }
+    P4OUT |= BIT4;
+    P4OUT &= ~BIT3;
+
+    nrf_inicializar();
+    nrf_limpiar_flags();
+    nrf_conf_inicial(); // El nrf24l01+ queda como PRX escuchando en 0x65646f4e31
+    __delay_cycles(10000); // Delay para que todo se estabilice
+    nrf_como_PTX(txdir);
+
+    fr = f_open(&fdst, "0:data123.txt", FA_WRITE | FA_CREATE_ALWAYS);
+    if (fr) {xprintf("FA_CREATE_ALWAYS f_open %02x",(int)fr); return (int)fr;}
+    fr = f_puts("================================================================================\n\r",&fdst); //80 + 2
+    fr = f_puts("==============================================================================================\n\r",&fdst); //96
+    fr = f_puts("================================================================================\n\r",&fdst); //80 + 2
+
+    while(1){
+        switch(est){
+        case descarga:
+            if(prev_est == esperar){
+                nrf_como_PTX(txdir);
+            }
+            if(prev_est != descarga){
+                strcpy(buff_trx,"DESCARGAR");
+            }
+            nrf_cargar_y_transmitir(buff_trx);
+            while((nrf_esperar() != 0x20)){
+                nrf_limpiar_y_retransmitir();
+            }
+            // Se transmitió correctamente la "baliza"
+            xputs("DESCAGAR\n\r");
+            est = continuar;
+            prev_est = descarga;
+            break;
+        case continuar:
+            if(prev_est != continuar){
+                strcpy(buff_trx,"CONTINUAR");
+            }
+            if(prev_est == esperar){
+                nrf_como_PTX(txdir);
+            }
+            nrf_cargar_y_transmitir(buff_trx);
+            if((nrf_esperar() != 0x20)){
+                est = descarga; // No llego el ack de "CONTINUAR"
+            }else{
+                est = esperar; // Llego el ack de "CONTINUAR"
+            }
+            xputs("CONTINUAR\n\r");
+            prev_est = continuar;
+            break;
+        case esperar:
+            if(prev_est != esperar){
+                nrf_como_PRX(rxdir);
+            }
+            xputs("ESPERAR\n\r");
+            if(nrf_esperar() == 0x40){
+                // Se recibio un paquete de datos
+                nrf_leer_rx_payload(buff_trx);
+                nrf_limpiar_flags();
+
+                if(buff_trx[15]=='E'){
+                    // It's energy baby.
+                    uint8_t z=0;
+                    strcpy(buff_linea,"Fecha y hora de lectura: ");
+                    strncat(buff_linea,buff_trx,14);
+                    strcat(buff_linea,"\t\tEnergia [kWh]: ");
+                    for(z=0;z<10;z++){
+                        buff_linea[56+z]=buff_trx[17+z]; //66;
+                    }
+                    for(z=0;z<30;z++){
+                        buff_linea[66+z]=' ';
+                    }
+                    buff_linea[94]='\n';
+                    buff_linea[95]='\r';
+
+                    fr = f_lseek(&fdst, 82);
+                    fr = f_write(&fdst, buff_linea,96, &wc);
+                    xprintf("Energia %02x\n\r",fr);
+                    est = continuar;
+                }
+
+                if (!strcmp(buff_trx,"FIN")){
+                    // FIN de la transmision
                     est = fin;
                     xputs("\n\rFIN\n\r");
                     fr = f_lseek(&fdst, f_size(&fdst));
@@ -585,20 +734,27 @@ void recibir_datos(void){
                     f_mount(NULL, "0:", 0);
                     // Cerrar el archivo;
 
-                }else{
+                }else if(buff_trx[15]!='E'){
                     // Hacer lo que hay que hacer
                     est = continuar;
                     // Construir en buff_evento
                     xputs("DATO \n\r");
+                    put_dump(buff_trx,buff_trx,32,DW_CHAR);
+                    xputs("\n\r");
                     for(x=0;x<32;x++){
                         buff_evento[pbe + x]=buff_trx[x];
                     }
                     pbe = pbe + 32;
 
                     if(pbe==192){
+                        pbe = 0;
                         // buff_evento esta lleno
-                        buff_evento[191]=0;
-                        xprintf("evento lleno %s\n",buff_evento);
+
+                        for(x=168;x<192;x++){
+                            buff_evento[x]=0;
+                        }
+
+                        xprintf("\nevento lleno \n%s\n",buff_evento);
                         // ¿Hay pendientes en buffer_linea?
                         if((pbl != 96) && (pbl != 0)){
                             for(x=0;x<(96 - pbl);x++){
@@ -608,38 +764,45 @@ void recibir_datos(void){
                             pbl = 0;
                         }
 
-                        limpiar_evento(buff_evento,buff_linea);
+                        if(limpiar_evento(buff_evento,buff_linea)){
+                         // Evento de energia
+                            for(x=0;x<192;x++){
+                                buff_evento[x] = 0; // Limpiar
+                            }
+                            pbe = 0;
+                        }else{
+                            for(x=0;x<192;x++){
+                                buff_evento[x] = 0; // Limpiar
+                            }
+                            pbe = 0;
 
-                        for(x=0;x<192;x++){
-                            buff_evento[x] = 0; // Limpiar
-                        }
-                        pbe = 0;
+                            // añadir al buff_archivo
+                            for(x=0;x<96;x++){
+                                if((pba + x)<1024){
+                                    buff_archivo[pba + x]=buff_linea[x];
+                                }else{
+                                    break;
+                                }
+                            }
+                            pbl = x;
+                            pba += x;
+                            if(pba == 1024){
+                                // buff_archivo esta lleno
+                                //Grabar en sd
+                                //buff_archivo[1023]=0;
+                                xputs("\n\rbuff_archivo\n\r");
+                                put_dump(buff_archivo,buff_archivo,1024,8);
+                                xputs("\n");
+                                fr = f_lseek(&fdst, f_size(&fdst));
+                                xputs("l_seek\n\r");
+                                fr = f_write(&fdst, buff_archivo,1024, &wc);
 
-                        // añadir al buff_archivo
-                        for(x=0;x<96;x++){
-                            if((pba + x)<1024){
-                                buff_archivo[pba + x]=buff_linea[x];
-                            }else{
-                                break;
+                                for(y=0;y<1024;y++){
+                                    buff_archivo[y]=0; //limpiar
+                                }
+                                pba = 0;
                             }
                         }
-                        pbl = x;
-                        pba += x;
-                        if(pba == 1024){
-                            // buff_archivo esta lleno
-                            //Grabar en sd
-                            buff_archivo[1023]=0;
-                            xprintf("Archivo_lleno %s\n\r",buff_archivo);
-                            fr = f_lseek(&fdst, f_size(&fdst));
-                            xputs("l_seek\n\r");
-                            fr = f_write(&fdst, buff_archivo,1024, &wc);
-
-                            for(y=0;y<1024;y++){
-                                buff_archivo[y]=0; //limpiar
-                            }
-                            pba = 0;
-                        }
-
                     }
 
 
@@ -661,12 +824,72 @@ void recibir_datos(void){
 
 }
 
-void limpiar_evento(uint8_t * evento, uint8_t * linea){
+// Limpiar_evento devuelve 1 si el evento es en realidad el valor de energia.
+uint8_t limpiar_evento(uint8_t * evento, uint8_t * linea){
     uint8_t z;
-    for(z=0;z<96;z++){
+    if(evento[15]=='E'){
+        // It's energy baby.
+        strcpy(linea,"Fecha y hora de lectura: ");
+        strncat(linea,evento,14);
+        strcat(linea,"\t\tEnergia total: ");
+        for(z=0;z<10;z++){
+            linea[56+z]=evento[17+z]; //66;
+        }
+        for(z=0;z<30;z++){
+            linea[66+z]=' ';
+        }
+        linea[94]='\n';
+        linea[95]='\r';
+        return 1;
+    }
+    /* Evento
+     * YY/MM/DD-hh:mm:ss   FIN_SOBRECORRIENTE , E=xxxxxxx.xx kWh, P = xxxxx.12 W, FP = 1.123 IND, f = 12.1 Hz, Vrms = 123.1 V, Vp = 123.1 V, Inrms = 12.123 A, inp = 12.123 A\n\r
+     */
+    for(z=0;z<17;z++){
         linea[z]=evento[z];
     }
-    linea[z]=0;
+    linea[17] = ',';
+
+    for(z=0;z<18;z++){ // Evento
+        linea[18+z] = evento[20+z];
+    }
+    linea[36] = ',';
+    for(z=0;z<10;z++){ // Energia
+        linea[37+z] = evento[43+z];
+    }
+    linea[47]= ',';
+    for(z=0;z<8;z++){ // Pot
+        linea[48+z] = evento[63+z];
+    }
+    linea[56]=',';
+    for(z=0;z<5;z++){ // FP
+        linea[57+z] = evento[80+z];
+    }
+    linea[62]=evento[86];
+    linea[63]=',';
+    for(z=0;z<4;z++){ // f
+        linea[64+z] = evento[95+z];
+    }
+    linea[68]=',';
+    for(z=0;z<5;z++){ // vrms
+        linea[69+z] = evento[111+z];
+    }
+    linea[74]=',';
+    for(z=0;z<5;z++){ // vp
+        linea[75+z] = evento[125+z];
+    }
+    linea[80]=',';
+    for(z=0;z<6;z++){ // irms
+        linea[81+z] = evento[142+z];
+    }
+    linea[87]=',';
+    for(z=0;z<6;z++){ // ipico
+        linea[88+z] = evento[158+z];
+    }
+    linea[94]='\n';
+    linea[94]='\r';
+    xprintf("\n\r\n\rLINEA \n\r%s\n\r",linea);
+    return 0;
 }
 
 void init_SD(void){
