@@ -118,6 +118,12 @@ int main(void) {
     P4DIR |= BIT3 | BIT4; //Leds
     P4OUT &= ~(BIT3 | BIT4);
 
+    P2DIR &= ~BIT5;
+    P2OUT &= ~BIT5;
+    P2REN |= BIT5; // P2.5 con pulldown
+
+    P2IE |= BIT5; //Interrupciones habilitadas para P2.5;
+
     xputs("\n\r-----------------------------------------------------------------\n\r");
 
     xputs("1 - Memoria Flash\n\r");
@@ -494,16 +500,18 @@ void tirar_al_archivo(void){
     enum estado est = descarga;
     enum estado prev_est = descarga;
 
-    uint8_t buff_trx[32];
-    uint8_t buff_evento[192];
+    uint8_t buff_trx[33];
+    buff_trx[32] = 0; // El caracter 33 es siempre el final de cadena.
+   // uint8_t buff_evento[192];
     uint8_t buff_linea[96];
-    uint8_t pbl = 0;
-    uint8_t pbe = 0; // Puntero de buffer_evento
-    uint8_t buff_archivo[1024];
-    uint16_t pba = 0; // Puntero de buffer_archivo
+   // uint8_t pbl = 0;
+   // uint8_t pbe = 0; // Puntero de buffer_evento
+   // uint8_t buff_archivo[1024];
+   // uint16_t pba = 0; // Puntero de buffer_archivo
 
-    uint8_t x;
-    uint16_t y; // Contadores
+   // uint8_t x;
+   // uint16_t y; // Contadores
+    int16_t k;
     // Configuración inicial como PTX.
 
     uint64_t txdir = 0x65646f4e31;
@@ -535,6 +543,8 @@ void tirar_al_archivo(void){
     fr = f_puts("==============================================================================================\n\r",&fdst); //96
     fr = f_puts("================================================================================\n\r",&fdst); //80 + 2
 
+    strcpy(buff_trx,"DESCARGAR");
+    P4OUT |= BIT3;
     while(1){
         switch(est){
         case descarga:
@@ -549,7 +559,7 @@ void tirar_al_archivo(void){
                 nrf_limpiar_y_retransmitir();
             }
             // Se transmitió correctamente la "baliza"
-            xputs("DESCAGAR\n\r");
+            //xputs("DESCARGAR\n\r");
             est = continuar;
             prev_est = descarga;
             break;
@@ -570,31 +580,65 @@ void tirar_al_archivo(void){
             prev_est = continuar;
             break;
         case esperar:
+            P4OUT ^= BIT4; // Togglea led verde.
             if(prev_est != esperar){
                 nrf_como_PRX(rxdir);
             }
             xputs("ESPERAR\n\r");
+
             if(nrf_esperar() == 0x40){
                 // Se recibio un paquete de datos
+                for(k=0;k<32;k++){
+                    buff_trx[k]=0;
+                }
                 nrf_leer_rx_payload(buff_trx);
                 nrf_limpiar_flags();
                 if (!strcmp(buff_trx,"FIN")){
                     // FIN de la transmision
-
                     xputs("\n\rFIN\n\r");
-                    fr = f_lseek(&fdst, f_size(&fdst));
-                    xputs("l_seek\n\r");
-                    fr = f_write(&fdst, buff_trx,32, &wc);
+                    //fr = f_lseek(&fdst, f_size(&fdst));
+                    //xputs("l_seek\n\r");
+                    //fr = f_write(&fdst, buff_trx,32, &wc);
                     fr=f_close(&fdst);
                     xprintf("\n\rCerrado result: %02x",(int)fr);
                     xputs("\n\r-----------------------------------------\n\r");
                     f_mount(NULL, "0:", 0);
                     // Cerrar el archivo;
+                    P4OUT |= BIT4;
+                    P4OUT &= ~BIT3;
                      est = fin;
                 }else{
-                    fr = f_lseek(&fdst, f_size(&fdst));
-                    fr = f_write(&fdst, buff_trx,32, &wc);
-                    est = continuar;
+                    if(buff_trx[15]=='E' && buff_trx[16]=='='){
+
+                        uint8_t z=0;
+                        strcpy(buff_linea,"Fecha y hora de lectura: ");
+                        strncat(buff_linea,buff_trx,14);
+                        strcat(buff_linea,"\t\tEnergia [kWh]: ");
+                        for(z=0;z<10;z++){
+                            buff_linea[56+z]=buff_trx[17+z]; //66;
+                        }
+                        for(z=0;z<30;z++){
+                            buff_linea[66+z]=' ';
+                        }
+                        buff_linea[94]='\n';
+                        buff_linea[95]='\r';
+                        fr = f_lseek(&fdst, 82);
+                        fr = f_write(&fdst, buff_linea,96, &wc);
+                        fr = f_lseek(&fdst, f_size(&fdst));
+                        xputs(buff_linea);
+                        est = continuar;
+                    }else{
+                        //fr = f_lseek(&fdst, f_size(&fdst));
+                        buff_trx[32] = 0;
+                        fr = f_puts(buff_trx,&fdst);
+                        xputs(buff_trx);
+                        for(k=0;k<32;k++){
+                            buff_trx[k]=0;
+                        }
+
+                        est = continuar;
+                    }
+
                 }
             }else{
                 // No se recibio nada en x milisegundos
@@ -670,7 +714,7 @@ void recibir_datos(void){
                 nrf_limpiar_y_retransmitir();
             }
             // Se transmitió correctamente la "baliza"
-            xputs("DESCAGAR\n\r");
+            xputs("DESCARGAR\n\r");
             est = continuar;
             prev_est = descarga;
             break;
@@ -977,4 +1021,18 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) Timer_A (void)
     P4OUT ^= BIT3 | BIT4;
     TACTL &= ~TAIFG;
     timer_cont++;
+}
+
+    // Port 2
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=PORT2_VECTOR
+    __interrupt void Port_2(void)
+#elif defined(__GNUC__)
+    void __attribute__ ((interrupt(PORT2_VECTOR))) Port_2 (void)
+#else
+#error Compiler not supported!
+#endif
+{
+    tirar_al_archivo();
+    P2IFG &= ~BIT5;                           // P2.5 IFG = 0
 }

@@ -248,7 +248,7 @@ void nrf_ver_registros(void){
 
 /* nrf_esperar_respuesta() encuesta al pin P4.2 para saber cuando ocurrio algun evento */
 inline uint8_t nrf_esperar(){
-	xputs("Esperando...\n\r");
+    //xputs("Esperando...\n\r");
 	while(P4IN & IRQ); // Polling 4.2
 	uint8_t respuesta;
 	switch ( leer_reg_8bits(0x07) & 0x70 ) { // Leer status y filtrar los bits de interrupciones.
