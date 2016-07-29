@@ -20,3 +20,5 @@ uart.c
 uart.h
 xprintf.c
 xprintf.h
+funcionalidades.c
+funcionalidades.h

@@ -133,6 +133,7 @@ int main(void) {
     xputs("5 - Test SD\n\r");
     xputs("6 - Recibir Datos y grabar en la SD\n\r");
     xputs("7 - Tirar datos en la SD\n\r");
+    xputs("8 - Enviar a la PC datos simulados\n\r");
     xputs("\n\rIngrese num de comando y presione [ENTER]: ");
     
 
@@ -156,10 +157,34 @@ int main(void) {
     {
         tirar_al_archivo();
     }
+    if(!(strcmp(buff,"8")))
+    {
+    	env_datos_simulados();
+     }
     if(!(strcmp(buff,"1"))){
+        char in[7];
 	    msprf24_init();
         xputs("Escribir o Leer: (e/l)\n\r");
 	    char buffe[256];
+	    //while(P4IN & BIT2); //polling 4.2
+	    nrf_limpiar_flags();
+
+	    int8_t i;
+	    for(i=0; i<32 ;i++){
+		    in[i] = 0x00;
+	    }
+	    xputs("\n\rMensaje: ");
+	    xgets((char *)in, 31);
+	    nrf_cargar_y_transmitir(in);
+	    if (nrf_esperar() != 0x20) {
+		    xputs("Error NO Transmision\n\r");
+	    }else{
+		    xputs("\n\rACK Recibido\n\r");
+		    P4OUT ^= BIT4;
+		    P4OUT ^= BIT3;
+	    }
+
+
         char buffl[256];
 	    int res = 1;
 	    char dir[7];
